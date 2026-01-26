@@ -22,6 +22,7 @@ const elements = {
   emailInput: null,
   emailError: null,
   userEmail: null,
+  changeEmailBtn: null,
   notOnLinkedInState: null,
   jobDetailsState: null,
   loadingState: null,
@@ -42,6 +43,7 @@ function initializeElements() {
   elements.emailInput = document.getElementById('emailInput');
   elements.emailError = document.getElementById('emailError');
   elements.userEmail = document.getElementById('userEmail');
+  elements.changeEmailBtn = document.getElementById('changeEmailBtn');
   elements.notOnLinkedInState = document.getElementById('notOnLinkedInState');
   elements.jobDetailsState = document.getElementById('jobDetailsState');
   elements.loadingState = document.getElementById('loadingState');
@@ -56,18 +58,15 @@ function initializeElements() {
   log('ELEMENTS_INITIALIZED');
 }
 
-// Load saved state from storage
+// Load saved state from storage (only saved jobs, NOT email)
 async function loadSavedState() {
   log('LOAD_STATE_START');
 
   try {
-    const result = await chrome.storage.local.get(['proyoEmail', 'proyoSavedJobs']);
+    const result = await chrome.storage.local.get(['proyoSavedJobs']);
 
-    if (result.proyoEmail) {
-      STATE.email = result.proyoEmail;
-      STATE.isAuthenticated = true;
-      log('STATE_LOADED', { email: STATE.email });
-    }
+    // Don't load email - start fresh every session
+    // User must enter email each time sidebar opens
 
     if (result.proyoSavedJobs) {
       STATE.savedJobUrls = new Set(result.proyoSavedJobs);
@@ -80,11 +79,10 @@ async function loadSavedState() {
   }
 }
 
-// Save state to storage
+// Save state to storage (only saved jobs, NOT email)
 async function saveState() {
   try {
     await chrome.storage.local.set({
-      proyoEmail: STATE.email,
       proyoSavedJobs: Array.from(STATE.savedJobUrls)
     });
     log('STATE_SAVED');
@@ -113,19 +111,40 @@ function handleEmailSubmit(event) {
     return;
   }
 
-  // Save email and authenticate
+  // Save email and authenticate (NOT saved to storage)
   STATE.email = email;
   STATE.isAuthenticated = true;
   log('AUTH_SUCCESS', { email: STATE.email });
 
-  // Save to storage
-  saveState();
-
   // Update UI
   updateUI();
 
+  // Start monitoring content script
+  startMonitoring();
+
   // Request current job data
   requestCurrentJobData();
+}
+
+// Handle change email button click
+function handleChangeEmail() {
+  log('CHANGE_EMAIL_START');
+
+  // Stop monitoring
+  stopMonitoring();
+
+  // Clear authentication state
+  STATE.email = null;
+  STATE.isAuthenticated = false;
+  STATE.currentJob = null;
+
+  // Reset email input
+  elements.emailInput.value = '';
+
+  // Update UI to show email screen
+  updateUI();
+
+  log('CHANGE_EMAIL_COMPLETE');
 }
 
 // Show error message
@@ -216,6 +235,55 @@ function showLoadingState() {
   elements.loadingState.style.display = 'flex';
 }
 
+// Start monitoring in content script
+async function startMonitoring() {
+  log('START_MONITORING');
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab || !tab.url.includes('linkedin.com')) {
+      log('NOT_ON_LINKEDIN', { url: tab?.url });
+      return;
+    }
+
+    // Tell content script to start monitoring
+    chrome.tabs.sendMessage(tab.id, { type: 'START_MONITORING' }, (response) => {
+      if (chrome.runtime.lastError) {
+        log('START_MONITORING_ERROR', { error: chrome.runtime.lastError.message });
+      } else {
+        log('START_MONITORING_SUCCESS', { response });
+      }
+    });
+  } catch (error) {
+    log('START_MONITORING_ERROR', { error: error.message });
+  }
+}
+
+// Stop monitoring in content script
+async function stopMonitoring() {
+  log('STOP_MONITORING');
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab || !tab.url.includes('linkedin.com')) {
+      return;
+    }
+
+    // Tell content script to stop monitoring
+    chrome.tabs.sendMessage(tab.id, { type: 'STOP_MONITORING' }, (response) => {
+      if (chrome.runtime.lastError) {
+        log('STOP_MONITORING_ERROR', { error: chrome.runtime.lastError.message });
+      } else {
+        log('STOP_MONITORING_SUCCESS', { response });
+      }
+    });
+  } catch (error) {
+    log('STOP_MONITORING_ERROR', { error: error.message });
+  }
+}
+
 // Request current job data from content script
 async function requestCurrentJobData() {
   log('REQUEST_JOB_DATA_START');
@@ -269,14 +337,39 @@ async function handleSaveJob() {
   showLoadingState();
 
   try {
-    // Prepare job data
+    // Get current active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab || !tab.url.includes('linkedin.com')) {
+      throw new Error('Not on LinkedIn');
+    }
+
+    // Request FULL job data (with description expansion) from content script
+    log('REQUESTING_FULL_JOB_DATA');
+    const fullJobData = await new Promise((resolve, reject) => {
+      chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_JOB_DATA_FULL' }, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (response && response.success && response.data) {
+          resolve(response.data);
+        } else {
+          reject(new Error('Failed to extract full job data'));
+        }
+      });
+    });
+
+    log('FULL_JOB_DATA_RECEIVED', { descriptionLength: fullJobData.description.length });
+
+    // Prepare job data with full description
     const jobData = {
       email: STATE.email,
-      jobTitle: STATE.currentJob.jobTitle,
-      companyName: STATE.currentJob.companyName,
-      location: STATE.currentJob.location,
-      description: STATE.currentJob.description,
-      jobUrl: STATE.currentJob.jobUrl,
+      jobTitle: fullJobData.jobTitle,
+      companyName: fullJobData.companyName,
+      location: fullJobData.location,
+      description: fullJobData.description,
+      jobUrl: fullJobData.jobUrl,
       status: elements.statusSelect.value
     };
 
@@ -329,7 +422,7 @@ function showSuccessAnimation() {
 }
 
 // Listen for messages from content script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message) => {
   log('MESSAGE_RECEIVED', { type: message.type });
 
   if (message.type === 'JOB_DETECTED' && message.data) {
@@ -349,6 +442,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
+// Handle sidebar close
+async function handleSidebarClose() {
+  log('SIDEBAR_CLOSING');
+
+  // Stop monitoring
+  await stopMonitoring();
+
+  // Clear email from storage completely (fresh start next time)
+  try {
+    await chrome.storage.local.remove('proyoEmail');
+    log('EMAIL_CLEARED_FROM_STORAGE');
+  } catch (error) {
+    log('EMAIL_CLEAR_ERROR', { error: error.message });
+  }
+
+  // Clear in-memory state
+  STATE.email = null;
+  STATE.isAuthenticated = false;
+  STATE.currentJob = null;
+
+  log('SIDEBAR_CLOSED_CLEANUP_COMPLETE');
+}
+
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   log('INIT_START');
@@ -356,17 +472,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize elements
   initializeElements();
 
-  // Load saved state
+  // Load saved state (only saved jobs, NOT email)
   loadSavedState();
 
   // Set up event listeners
   elements.emailForm.addEventListener('submit', handleEmailSubmit);
   elements.saveButton.addEventListener('click', handleSaveJob);
+  elements.changeEmailBtn.addEventListener('click', handleChangeEmail);
 
-  // Request current job data if already authenticated
-  if (STATE.isAuthenticated) {
-    requestCurrentJobData();
-  }
+  // Clean up when sidebar closes
+  window.addEventListener('beforeunload', handleSidebarClose);
+  window.addEventListener('pagehide', handleSidebarClose);
 
   log('INIT_COMPLETE');
 });

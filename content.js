@@ -97,6 +97,20 @@ const SELECTORS = {
 let currentJobData = null;
 let observer = null;
 let lastDetectedJobUrl = null;
+let isMonitoring = false; // Only monitor when sidebar is open
+
+// Helper function to clean text content
+function cleanText(text) {
+  if (!text) return '';
+
+  return text
+    // Remove zero-width characters
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    // Normalize whitespace (replace all whitespace with regular spaces)
+    .replace(/\s+/g, ' ')
+    // Trim leading and trailing whitespace
+    .trim();
+}
 
 // Helper function to try multiple selectors
 function findElementBySelectors(selectors, root = document) {
@@ -155,9 +169,87 @@ function extractJobUrl() {
   }
 }
 
-// Extract all job data from the page
-function extractJobData() {
-  log('EXTRACT_JOB_DATA_START', { url: window.location.href });
+// Expand job description by clicking "Show more" button
+async function expandJobDescription() {
+  const showMoreSelectors = [
+    'button[aria-label*="Show more"]',
+    'button[aria-label*="show more"]',
+    'button.jobs-description__footer-button',
+    'button[data-tracking-control-name*="show-more"]',
+    '.jobs-description__footer button',
+    'button.inline-show-more-text__button',
+    'button[class*="show-more"]'
+  ];
+
+  for (const selector of showMoreSelectors) {
+    try {
+      const button = document.querySelector(selector);
+      if (button && button.offsetParent !== null) { // Check if visible
+        log('CLICKING_SHOW_MORE', { selector });
+        button.click();
+        // Wait for content to expand
+        await new Promise(resolve => setTimeout(resolve, 300));
+        return true;
+      }
+    } catch (error) {
+      log('SHOW_MORE_ERROR', { selector, error: error.message });
+    }
+  }
+
+  log('NO_SHOW_MORE_BUTTON_FOUND');
+  return false;
+}
+
+// Extract basic job data (no expansion, fast)
+function extractJobDataBasic() {
+  log('EXTRACT_JOB_DATA_BASIC_START', { url: window.location.href });
+
+  const jobUrl = extractJobUrl();
+
+  // Check if we're on a job listing page
+  if (!window.location.href.includes('linkedin.com/jobs')) {
+    log('NOT_ON_JOBS_PAGE', { url: window.location.href });
+    return null;
+  }
+
+  // Extract only basic data (no description expansion)
+  const titleElement = findElementBySelectors(SELECTORS.jobTitle);
+  const companyElement = findElementBySelectors(SELECTORS.companyName);
+  const locationElement = findElementBySelectors(SELECTORS.location);
+
+  // Extract description WITHOUT clicking "Show more" - just get what's visible
+  const descriptionElement = findElementBySelectors(SELECTORS.description);
+
+  if (!titleElement || !companyElement) {
+    log('MISSING_REQUIRED_FIELDS_BASIC', {
+      hasTitle: !!titleElement,
+      hasCompany: !!companyElement
+    });
+    return null;
+  }
+
+  const jobData = {
+    jobTitle: cleanText(titleElement.textContent),
+    companyName: cleanText(companyElement.textContent),
+    location: locationElement ? cleanText(locationElement.textContent) : 'Not specified',
+    description: descriptionElement ? cleanText(descriptionElement.textContent) : 'No description available',
+    jobUrl: jobUrl,
+    extractedAt: new Date().toISOString()
+  };
+
+  log('JOB_DATA_BASIC_EXTRACTED', {
+    jobTitle: jobData.jobTitle.substring(0, 50),
+    companyName: jobData.companyName,
+    descriptionPreviewLength: jobData.description.length,
+    jobUrl: jobData.jobUrl
+  });
+
+  return jobData;
+}
+
+// Extract full job data with description (includes expansion)
+async function extractJobDataFull() {
+  log('EXTRACT_JOB_DATA_FULL_START', { url: window.location.href });
 
   const jobUrl = extractJobUrl();
 
@@ -178,6 +270,10 @@ function extractJobData() {
   const locationElement = findElementBySelectors(SELECTORS.location);
 
   log('EXTRACTING_DESCRIPTION');
+  // Try to expand description first
+  await expandJobDescription();
+
+  // Extract description after expansion
   const descriptionElement = findElementBySelectors(SELECTORS.description);
 
   if (!titleElement || !companyElement) {
@@ -191,15 +287,15 @@ function extractJobData() {
   }
 
   const jobData = {
-    jobTitle: titleElement.textContent.trim(),
-    companyName: companyElement.textContent.trim(),
-    location: locationElement ? locationElement.textContent.trim() : 'Not specified',
-    description: descriptionElement ? descriptionElement.textContent.trim() : '',
+    jobTitle: cleanText(titleElement.textContent),
+    companyName: cleanText(companyElement.textContent),
+    location: locationElement ? cleanText(locationElement.textContent) : 'Not specified',
+    description: descriptionElement ? cleanText(descriptionElement.textContent) : '',
     jobUrl: jobUrl,
     extractedAt: new Date().toISOString()
   };
 
-  log('JOB_DATA_EXTRACTED_SUCCESS', {
+  log('JOB_DATA_FULL_EXTRACTED', {
     jobTitle: jobData.jobTitle.substring(0, 50),
     companyName: jobData.companyName,
     location: jobData.location.substring(0, 50),
@@ -210,9 +306,15 @@ function extractJobData() {
   return jobData;
 }
 
-// Detect job changes and notify side panel
+// Detect job changes and notify side panel (uses basic extraction - no expansion)
 function detectAndNotifyJobChange() {
-  const jobData = extractJobData();
+  // Only detect if monitoring is active (sidebar is open)
+  if (!isMonitoring) {
+    log('MONITORING_INACTIVE', { skipping: true });
+    return;
+  }
+
+  const jobData = extractJobDataBasic();
 
   if (!jobData) {
     log('NO_JOB_DATA_DETECTED');
@@ -243,8 +345,14 @@ function detectAndNotifyJobChange() {
 }
 
 // Initialize MutationObserver to watch for job changes
+let initializeRetryCount = 0;
+const MAX_INIT_RETRIES = 5;
+
 function initializeObserver() {
-  log('INIT_OBSERVER_START', { url: window.location.href });
+  log('INIT_OBSERVER_START', {
+    url: window.location.href,
+    attempt: initializeRetryCount + 1
+  });
 
   // Try to find the job details container
   const container = findElementBySelectors(SELECTORS.jobDetailsContainer);
@@ -254,8 +362,15 @@ function initializeObserver() {
     // Try to extract data anyway, even without a container
     detectAndNotifyJobChange();
 
-    // Retry after 2 seconds to find a better container
-    setTimeout(initializeObserver, 2000);
+    // Retry with increasing delays, but stop after MAX_INIT_RETRIES
+    if (initializeRetryCount < MAX_INIT_RETRIES) {
+      initializeRetryCount++;
+      const retryDelay = Math.min(1000 * initializeRetryCount, 3000); // Max 3 seconds
+      log('SCHEDULING_RETRY', { retryDelay, attempt: initializeRetryCount });
+      setTimeout(initializeObserver, retryDelay);
+    } else {
+      log('MAX_RETRIES_REACHED', { maxRetries: MAX_INIT_RETRIES });
+    }
     return;
   }
 
@@ -263,6 +378,9 @@ function initializeObserver() {
     tagName: container.tagName,
     className: container.className.substring(0, 100)
   });
+
+  // Reset retry count on success
+  initializeRetryCount = 0;
 
   // Disconnect existing observer if any
   if (observer) {
@@ -294,13 +412,52 @@ function initializeObserver() {
 }
 
 // Listen for messages from side panel (via background script)
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   log('MESSAGE_RECEIVED', { type: message.type });
 
+  if (message.type === 'START_MONITORING') {
+    log('START_MONITORING_COMMAND');
+    isMonitoring = true;
+    // Initialize observer if not already done
+    if (!observer) {
+      initializeObserver();
+    } else {
+      // Just trigger detection if observer already exists
+      detectAndNotifyJobChange();
+    }
+    sendResponse({ success: true });
+    return false;
+  }
+
+  if (message.type === 'STOP_MONITORING') {
+    log('STOP_MONITORING_COMMAND');
+    isMonitoring = false;
+    // Disconnect observer to save resources
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
+    // Clear state
+    currentJobData = null;
+    lastDetectedJobUrl = null;
+    initializeRetryCount = 0;
+    sendResponse({ success: true });
+    return false;
+  }
+
   if (message.type === 'EXTRACT_JOB_DATA') {
-    const jobData = extractJobData();
+    // Basic extraction (no expansion)
+    const jobData = extractJobDataBasic();
     sendResponse({ success: true, data: jobData });
-    return true;
+    return false;
+  }
+
+  if (message.type === 'EXTRACT_JOB_DATA_FULL') {
+    // Full extraction with description expansion
+    extractJobDataFull().then(jobData => {
+      sendResponse({ success: true, data: jobData });
+    });
+    return true; // Keep message channel open for async response
   }
 
   return false;
@@ -311,11 +468,19 @@ let lastUrl = window.location.href;
 const urlObserver = new MutationObserver(() => {
   const currentUrl = window.location.href;
   if (currentUrl !== lastUrl) {
-    log('URL_CHANGED', { from: lastUrl, to: currentUrl });
+    log('URL_CHANGED', { from: lastUrl, to: currentUrl, isMonitoring });
     lastUrl = currentUrl;
+
+    // Only reinitialize if monitoring is active
+    if (!isMonitoring) {
+      log('URL_CHANGED_BUT_NOT_MONITORING', { skipping: true });
+      return;
+    }
 
     // Reinitialize observer if on jobs page
     if (currentUrl.includes('linkedin.com/jobs')) {
+      // Reset retry count for new page
+      initializeRetryCount = 0;
       setTimeout(() => {
         initializeObserver();
       }, 1000);
@@ -333,15 +498,10 @@ const urlObserver = new MutationObserver(() => {
 // Observe URL changes
 urlObserver.observe(document, { subtree: true, childList: true });
 
-// Initialize when page loads
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    log('DOM_CONTENT_LOADED');
-    setTimeout(initializeObserver, 1000);
-  });
-} else {
-  log('CONTENT_SCRIPT_LOADED', { readyState: document.readyState });
-  setTimeout(initializeObserver, 1000);
-}
-
-log('CONTENT_SCRIPT_INITIALIZED', { url: window.location.href });
+// Content script is loaded but NOT monitoring by default
+// It will only start monitoring when sidebar opens and sends START_MONITORING
+log('CONTENT_SCRIPT_INITIALIZED', {
+  url: window.location.href,
+  monitoring: false,
+  message: 'Waiting for START_MONITORING command from sidebar'
+});

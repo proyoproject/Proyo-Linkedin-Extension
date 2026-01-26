@@ -157,6 +157,16 @@ p {
   background-color: #E0F2E1 !important;
 }
 
+.btn-detect {
+  background-color: #000000;
+  color: #FFFFFF;
+  margin-top: 20px;
+}
+
+.btn-detect:hover {
+  background-color: #333333;
+}
+
 /* Job Screen */
 .header {
   padding: 16px 20px;

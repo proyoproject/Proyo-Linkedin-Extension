@@ -23,6 +23,7 @@ const elements = {
   emailError: null,
   userEmail: null,
   changeEmailBtn: null,
+  detectJobBtn: null,
   notOnLinkedInState: null,
   jobDetailsState: null,
   loadingState: null,
@@ -44,6 +45,7 @@ function initializeElements() {
   elements.emailError = document.getElementById('emailError');
   elements.userEmail = document.getElementById('userEmail');
   elements.changeEmailBtn = document.getElementById('changeEmailBtn');
+  elements.detectJobBtn = document.getElementById('detectJobBtn');
   elements.notOnLinkedInState = document.getElementById('notOnLinkedInState');
   elements.jobDetailsState = document.getElementById('jobDetailsState');
   elements.loadingState = document.getElementById('loadingState');
@@ -145,6 +147,30 @@ function handleChangeEmail() {
   updateUI();
 
   log('CHANGE_EMAIL_COMPLETE');
+}
+
+// Handle manual detect job button click
+async function handleDetectJob() {
+  log('MANUAL_DETECT_START');
+
+  // Disable button and show loading state
+  elements.detectJobBtn.disabled = true;
+  elements.detectJobBtn.textContent = '🔄 Detecting...';
+
+  try {
+    // Request current job data
+    await requestCurrentJobData();
+
+    // Wait a moment for the detection to complete
+    setTimeout(() => {
+      elements.detectJobBtn.disabled = false;
+      elements.detectJobBtn.textContent = '🔄 Detect Current Job';
+    }, 1000);
+  } catch (error) {
+    log('MANUAL_DETECT_ERROR', { error: error.message });
+    elements.detectJobBtn.disabled = false;
+    elements.detectJobBtn.textContent = '🔄 Detect Current Job';
+  }
 }
 
 // Show error message
@@ -479,6 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
   elements.emailForm.addEventListener('submit', handleEmailSubmit);
   elements.saveButton.addEventListener('click', handleSaveJob);
   elements.changeEmailBtn.addEventListener('click', handleChangeEmail);
+  elements.detectJobBtn.addEventListener('click', handleDetectJob);
 
   // Clean up when sidebar closes
   window.addEventListener('beforeunload', handleSidebarClose);

@@ -1,0 +1,22 @@
+# Render Blueprint for Proyo Job Saver Backend
+# This file enables one-click deployment to Render
+
+services:
+  - type: web
+    name: proyo-job-backend
+    runtime: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AIRTABLE_TABLE_NAME
+        value: Jobs
+      - key: AIRTABLE_API_KEY
+        sync: false
+      - key: AIRTABLE_BASE_ID
+        sync: false

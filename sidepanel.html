@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proyo Job Saver</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <!-- Email Entry Screen -->
+  <div id="emailScreen" class="screen">
+    <div class="email-container">
+      <div class="logo-container">
+        <!-- Inline SVG logo placeholder -->
+        <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="60" height="60" rx="12" fill="#000000"/>
+          <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="white" font-size="24" font-weight="600" font-family="Inter, sans-serif">P</text>
+        </svg>
+      </div>
+
+      <div class="email-header">
+        <h1>Save jobs to your Proyo dashboard</h1>
+      </div>
+
+      <form id="emailForm">
+        <div class="input-group">
+          <input
+            type="email"
+            id="emailInput"
+            class="email-input"
+            placeholder="Enter your Proyo email"
+            required
+            autocomplete="email"
+          />
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+          Continue →
+        </button>
+      </form>
+
+      <div id="emailError" class="error-message" style="display: none;"></div>
+    </div>
+  </div>
+
+  <!-- Job Detection Screen -->
+  <div id="jobScreen" class="screen" style="display: none;">
+    <div class="header">
+      <div class="header-title">
+        <span class="header-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="24" height="24" rx="4" fill="#000000"/>
+            <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="white" font-size="14" font-weight="600" font-family="Inter, sans-serif">P</text>
+          </svg>
+        </span>
+        <span class="header-text">Proyo Job Saver</span>
+      </div>
+      <div id="userEmail" class="user-email"></div>
+    </div>
+
+    <!-- Not on LinkedIn State -->
+    <div id="notOnLinkedInState" class="state-container" style="display: none;">
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <h3>Navigate to LinkedIn Jobs</h3>
+        <p>Go to LinkedIn and view a job listing to start saving</p>
+      </div>
+    </div>
+
+    <!-- Job Details State -->
+    <div id="jobDetailsState" class="state-container" style="display: none;">
+      <div class="section-label">CURRENT JOB</div>
+
+      <div class="job-card">
+        <h2 id="jobTitle" class="job-title">Loading...</h2>
+        <div id="jobCompany" class="job-company">Loading...</div>
+        <div id="jobLocation" class="job-location">📍 Loading...</div>
+
+        <div class="job-divider"></div>
+
+        <div id="jobDescription" class="job-description">
+          Loading job description...
+        </div>
+      </div>
+
+      <div class="status-selector">
+        <label for="statusSelect" class="status-label">Status:</label>
+        <select id="statusSelect" class="status-select">
+          <option value="Not Applied" selected>Not Applied</option>
+          <option value="Applied">Applied</option>
+          <option value="Interview">Interview</option>
+          <option value="Rejected">Rejected</option>
+          <option value="Offer">Offer</option>
+        </select>
+      </div>
+
+      <button id="saveButton" class="btn btn-save">
+        💾 Save to Proyo
+      </button>
+
+      <div id="saveError" class="error-message" style="display: none;"></div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="state-container" style="display: none;">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Saving to Proyo...</p>
+    </div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

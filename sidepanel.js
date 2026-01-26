@@ -158,13 +158,17 @@ async function handleDetectJob() {
   elements.detectJobBtn.textContent = '🔄 Detecting...';
 
   try {
-    // Request current job data
+    // Start monitoring (like email submit does) - this enables continuous detection
+    await startMonitoring();
+
+    // Request current job data immediately
     await requestCurrentJobData();
 
-    // Wait a moment for the detection to complete
+    // Re-enable button after detection
     setTimeout(() => {
       elements.detectJobBtn.disabled = false;
       elements.detectJobBtn.textContent = '🔄 Detect Current Job';
+      log('MANUAL_DETECT_COMPLETE');
     }, 1000);
   } catch (error) {
     log('MANUAL_DETECT_ERROR', { error: error.message });

@@ -90,22 +90,6 @@ const SELECTORS = {
     'div[class*="jobs-search"]',
     'main',
     'body' // Ultimate fallback
-  ],
-  // Job cards in the left sidebar list
-  jobCardList: [
-    '.jobs-search-results__list',
-    '.jobs-search-results-list',
-    'ul[class*="jobs-search-results"]',
-    'div[class*="jobs-search-results"][class*="list"]',
-    'ul.scaffold-layout__list-container'
-  ],
-  // Individual job card (active/selected state)
-  activeJobCard: [
-    '.jobs-search-results__list-item--active',
-    'li.active[data-job-id]',
-    'li[class*="active"][class*="job"]',
-    'li[class*="selected"]',
-    'div[class*="job-card"][class*="active"]'
   ]
 };
 
@@ -185,88 +169,6 @@ function extractJobUrl() {
   }
 }
 
-// Ensure job is activated (trigger blue border / full render)
-async function ensureJobActivated(jobUrl) {
-  log('ENSURE_JOB_ACTIVATED_START', { jobUrl });
-
-  try {
-    // Extract job ID from URL
-    const jobIdMatch = jobUrl.match(/\/jobs\/view\/(\d+)/);
-    if (!jobIdMatch || !jobIdMatch[1]) {
-      log('NO_JOB_ID_IN_URL', { jobUrl });
-      return false;
-    }
-
-    const jobId = jobIdMatch[1];
-    log('EXTRACTED_JOB_ID', { jobId });
-
-    // Try to find the job card in the left sidebar that matches this job ID
-    const jobCardSelectors = [
-      `li[data-job-id="${jobId}"]`,
-      `li[data-occludable-job-id="${jobId}"]`,
-      `div[data-job-id="${jobId}"]`,
-      `a[href*="/jobs/view/${jobId}"]`,
-      `[data-job-id="${jobId}"]`
-    ];
-
-    let jobCard = null;
-    for (const selector of jobCardSelectors) {
-      try {
-        const element = document.querySelector(selector);
-        if (element) {
-          // Find the clickable parent (li or div)
-          jobCard = element.closest('li') || element.closest('div[class*="job-card"]') || element;
-          if (jobCard) {
-            log('JOB_CARD_FOUND', { selector, tagName: jobCard.tagName });
-            break;
-          }
-        }
-      } catch (error) {
-        log('JOB_CARD_SELECTOR_ERROR', { selector, error: error.message });
-      }
-    }
-
-    if (!jobCard) {
-      log('JOB_CARD_NOT_FOUND', { jobId, triedSelectors: jobCardSelectors.length });
-      // Even if we can't find the card, wait a bit for LinkedIn to render
-      await new Promise(resolve => setTimeout(resolve, 800));
-      return false;
-    }
-
-    // Check if job is already active (has active class or aria-current)
-    const isActive = jobCard.classList.contains('active') ||
-                     jobCard.classList.contains('selected') ||
-                     jobCard.getAttribute('aria-current') === 'true' ||
-                     jobCard.querySelector('[aria-current="true"]') !== null;
-
-    if (isActive) {
-      log('JOB_ALREADY_ACTIVE');
-      // Still wait a bit to ensure rendering is complete
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return true;
-    }
-
-    // Job not active - click it to activate
-    log('CLICKING_JOB_CARD_TO_ACTIVATE');
-
-    // Find clickable element within the card (link or button)
-    const clickableElement = jobCard.querySelector('a') || jobCard.querySelector('button') || jobCard;
-    clickableElement.click();
-
-    // Wait for LinkedIn to render the job details
-    await new Promise(resolve => setTimeout(resolve, 1200));
-
-    log('JOB_ACTIVATION_COMPLETE');
-    return true;
-
-  } catch (error) {
-    log('ENSURE_JOB_ACTIVATED_ERROR', { error: error.message });
-    // Wait anyway in case of error
-    await new Promise(resolve => setTimeout(resolve, 800));
-    return false;
-  }
-}
-
 // Expand job description by clicking "Show more" button
 async function expandJobDescription() {
   const showMoreSelectors = [
@@ -299,7 +201,7 @@ async function expandJobDescription() {
 }
 
 // Extract basic job data (no expansion, fast)
-async function extractJobDataBasic() {
+function extractJobDataBasic() {
   log('EXTRACT_JOB_DATA_BASIC_START', { url: window.location.href });
 
   const jobUrl = extractJobUrl();
@@ -309,9 +211,6 @@ async function extractJobDataBasic() {
     log('NOT_ON_JOBS_PAGE', { url: window.location.href });
     return null;
   }
-
-  // IMPORTANT: Ensure job is activated (triggers full render) before extracting
-  await ensureJobActivated(jobUrl);
 
   // Extract only basic data (no description expansion)
   const titleElement = findElementBySelectors(SELECTORS.jobTitle);
@@ -359,9 +258,6 @@ async function extractJobDataFull() {
     log('NOT_ON_JOBS_PAGE', { url: window.location.href });
     return null;
   }
-
-  // IMPORTANT: Ensure job is activated (triggers full render) before extracting
-  await ensureJobActivated(jobUrl);
 
   // Extract data using selectors
   log('EXTRACTING_TITLE');
@@ -411,14 +307,14 @@ async function extractJobDataFull() {
 }
 
 // Detect job changes and notify side panel (uses basic extraction - no expansion)
-async function detectAndNotifyJobChange() {
+function detectAndNotifyJobChange() {
   // Only detect if monitoring is active (sidebar is open)
   if (!isMonitoring) {
     log('MONITORING_INACTIVE', { skipping: true });
     return;
   }
 
-  const jobData = await extractJobDataBasic();
+  const jobData = extractJobDataBasic();
 
   if (!jobData) {
     log('NO_JOB_DATA_DETECTED');
@@ -550,11 +446,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'EXTRACT_JOB_DATA') {
-    // Basic extraction (no expansion) - now async
-    extractJobDataBasic().then(jobData => {
-      sendResponse({ success: true, data: jobData });
-    });
-    return true; // Keep message channel open for async response
+    // Basic extraction (no expansion)
+    const jobData = extractJobDataBasic();
+    sendResponse({ success: true, data: jobData });
+    return false;
   }
 
   if (message.type === 'EXTRACT_JOB_DATA_FULL') {

@@ -4,42 +4,92 @@ const log = (action, data = {}) => {
   console.log(`[Proyo Content] ${new Date().toISOString()} | ${action}`, data);
 };
 
-// LinkedIn selector configurations with fallbacks
+// LinkedIn selector configurations with extensive fallbacks
 const SELECTORS = {
   jobTitle: [
+    // Modern LinkedIn (2024-2026)
     '.job-details-jobs-unified-top-card__job-title',
     '.jobs-unified-top-card__job-title',
+    'h1.job-details-jobs-unified-top-card__job-title',
+    'h2.job-details-jobs-unified-top-card__job-title',
+    // Previous versions
     'h1.t-24.t-bold',
     '.jobs-details-top-card__job-title h1',
-    'h2.job-details-jobs-unified-top-card__job-title'
+    '.jobs-details-top-card__job-title',
+    // Generic patterns - search for any element with "job" and "title" in class
+    'h1[class*="job"][class*="title"]',
+    'h2[class*="job"][class*="title"]',
+    'h1[class*="jobs-unified-top-card"]',
+    'h2[class*="jobs-unified-top-card"]',
+    // Very generic fallbacks - any large heading on a jobs page
+    'h1[class*="job"]',
+    'h2[class*="job"]',
+    'main h1',
+    'h1'
   ],
   companyName: [
+    // Modern LinkedIn (2024-2026)
     '.job-details-jobs-unified-top-card__company-name',
     '.jobs-unified-top-card__company-name',
-    '.jobs-unified-top-card__primary-description a',
     '.job-details-jobs-unified-top-card__primary-description a',
-    'a.app-aware-link[data-tracking-control-name="public_jobs_topcard-org-name"]'
+    '.jobs-unified-top-card__primary-description a',
+    // Previous versions
+    'a.app-aware-link[data-tracking-control-name="public_jobs_topcard-org-name"]',
+    'a[data-tracking-control-name*="company"]',
+    // Generic patterns
+    'a[class*="company-name"]',
+    'a[class*="company"][class*="name"]',
+    '.jobs-unified-top-card__subtitle a',
+    'a[class*="jobs-unified-top-card"][class*="company"]',
+    // Very generic - any link near the job title
+    'h1 ~ * a',
+    'h2 ~ * a',
+    'main a[href*="company"]'
   ],
   location: [
+    // Modern LinkedIn (2024-2026)
     '.job-details-jobs-unified-top-card__bullet',
     '.jobs-unified-top-card__bullet',
     '.jobs-unified-top-card__workplace-type',
     'span.jobs-unified-top-card__bullet',
-    '.job-details-jobs-unified-top-card__primary-description span'
+    '.job-details-jobs-unified-top-card__primary-description span',
+    // Generic patterns
+    'span[class*="bullet"]',
+    'span[class*="location"]',
+    'span[class*="workplace"]',
+    '.jobs-unified-top-card__subtitle-primary-grouping span',
+    // Very generic
+    'span[class*="job"][class*="bullet"]',
+    'main span[class*="t-black--light"]'
   ],
   description: [
+    // Modern LinkedIn (2024-2026)
     '.jobs-description-content__text',
     '.jobs-description__content',
+    'div[class*="jobs-description-content"]',
+    'div[class*="jobs-description"]',
+    // Previous versions
     '#job-details',
     '.jobs-box__html-content',
-    'article.jobs-description__container'
+    'article.jobs-description__container',
+    // Generic patterns
+    'div[class*="description"][class*="content"]',
+    'article[class*="description"]',
+    'div[class*="job-description"]',
+    // Very generic
+    'main article',
+    'main div[class*="description"]'
   ],
   // Container that holds all job details
   jobDetailsContainer: [
     '.jobs-search__job-details',
     '.jobs-details',
     'div[class*="job-details"]',
-    '.jobs-search__right-rail'
+    '.jobs-search__right-rail',
+    'main[class*="scaffold-layout__main"]',
+    'div[class*="jobs-search"]',
+    'main',
+    'body' // Ultimate fallback
   ]
 };
 
@@ -50,18 +100,28 @@ let lastDetectedJobUrl = null;
 
 // Helper function to try multiple selectors
 function findElementBySelectors(selectors, root = document) {
-  for (const selector of selectors) {
+  log('TRYING_SELECTORS', { count: selectors.length, firstSelector: selectors[0] });
+
+  for (let i = 0; i < selectors.length; i++) {
+    const selector = selectors[i];
     try {
       const element = root.querySelector(selector);
       if (element && element.textContent.trim()) {
-        log('SELECTOR_MATCH', { selector, text: element.textContent.trim().substring(0, 50) });
+        log('SELECTOR_MATCH', {
+          selectorIndex: i,
+          selector,
+          text: element.textContent.trim().substring(0, 50)
+        });
         return element;
       }
     } catch (error) {
       log('SELECTOR_ERROR', { selector, error: error.message });
     }
   }
-  log('SELECTOR_NO_MATCH', { selectors });
+  log('SELECTOR_NO_MATCH', {
+    selectorCount: selectors.length,
+    firstThree: selectors.slice(0, 3)
+  });
   return null;
 }
 
@@ -97,7 +157,7 @@ function extractJobUrl() {
 
 // Extract all job data from the page
 function extractJobData() {
-  log('EXTRACT_JOB_DATA_START');
+  log('EXTRACT_JOB_DATA_START', { url: window.location.href });
 
   const jobUrl = extractJobUrl();
 
@@ -108,15 +168,24 @@ function extractJobData() {
   }
 
   // Extract data using selectors
+  log('EXTRACTING_TITLE');
   const titleElement = findElementBySelectors(SELECTORS.jobTitle);
+
+  log('EXTRACTING_COMPANY');
   const companyElement = findElementBySelectors(SELECTORS.companyName);
+
+  log('EXTRACTING_LOCATION');
   const locationElement = findElementBySelectors(SELECTORS.location);
+
+  log('EXTRACTING_DESCRIPTION');
   const descriptionElement = findElementBySelectors(SELECTORS.description);
 
   if (!titleElement || !companyElement) {
     log('MISSING_REQUIRED_FIELDS', {
       hasTitle: !!titleElement,
-      hasCompany: !!companyElement
+      hasCompany: !!companyElement,
+      hasLocation: !!locationElement,
+      hasDescription: !!descriptionElement
     });
     return null;
   }
@@ -130,9 +199,11 @@ function extractJobData() {
     extractedAt: new Date().toISOString()
   };
 
-  log('JOB_DATA_EXTRACTED', {
-    jobTitle: jobData.jobTitle,
+  log('JOB_DATA_EXTRACTED_SUCCESS', {
+    jobTitle: jobData.jobTitle.substring(0, 50),
     companyName: jobData.companyName,
+    location: jobData.location.substring(0, 50),
+    descriptionLength: jobData.description.length,
     jobUrl: jobData.jobUrl
   });
 
@@ -173,19 +244,25 @@ function detectAndNotifyJobChange() {
 
 // Initialize MutationObserver to watch for job changes
 function initializeObserver() {
-  log('INIT_OBSERVER_START');
+  log('INIT_OBSERVER_START', { url: window.location.href });
 
   // Try to find the job details container
   const container = findElementBySelectors(SELECTORS.jobDetailsContainer);
 
   if (!container) {
-    log('CONTAINER_NOT_FOUND', { retryIn: '2s' });
-    // Retry after 2 seconds
+    log('CONTAINER_NOT_FOUND_TRYING_ANYWAY', { willRetry: true });
+    // Try to extract data anyway, even without a container
+    detectAndNotifyJobChange();
+
+    // Retry after 2 seconds to find a better container
     setTimeout(initializeObserver, 2000);
     return;
   }
 
-  log('CONTAINER_FOUND', { selector: container.className });
+  log('CONTAINER_FOUND', {
+    tagName: container.tagName,
+    className: container.className.substring(0, 100)
+  });
 
   // Disconnect existing observer if any
   if (observer) {

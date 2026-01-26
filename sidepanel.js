@@ -11,7 +11,7 @@ const STATE = {
   currentJob: null,
   savedJobUrls: new Set(),
   isLoading: false,
-  backendUrl: 'REPLACE_WITH_YOUR_RENDER_URL' // After deploying to Render, replace this with your URL (e.g., https://proyo-job-backend-abc123.onrender.com)
+  backendUrl: 'https://proyo-linkedin-extension.onrender.com' // After deploying to Render, replace this with your URL (e.g., https://proyo-job-backend-abc123.onrender.com)
 };
 
 // DOM elements

@@ -157,7 +157,6 @@ app.post('/api/jobs', async (req, res) => {
           'Description': sanitizedData.description,
           'Email': sanitizedData.email,
           'Status': sanitizedData.status,
-          'Added Date': new Date().toISOString().split('T')[0], // YYYY-MM-DD format
           'Job URL': sanitizedData.jobUrl
         }
       }

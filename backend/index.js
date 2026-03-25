@@ -124,7 +124,7 @@ app.post('/api/jobs', async (req, res) => {
       location: sanitizeInput(location || 'Not specified'),
       description: sanitizeInput(description || ''),
       jobUrl: sanitizeInput(jobUrl),
-      status: sanitizeInput(status || 'Not Applied')
+      status: sanitizeInput(status || 'Saved')
     };
 
     // Check for duplicate job URL for this user

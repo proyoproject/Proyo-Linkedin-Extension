@@ -12,7 +12,13 @@
       "Bash(git config:*)",
       "Bash(curl:*)",
       "Bash(git reset:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git revert:*)",
+      "Bash(unzip -o brand-guide.pages -d /tmp/pages-extract)",
+      "Read(//tmp/**)",
+      "WebFetch(domain:airtable.com)",
+      "Bash(gh auth:*)",
+      "Bash(ssh -T git@github.com)"
     ]
   }
 }

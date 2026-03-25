@@ -8,9 +8,9 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: #FFFFFF;
-  color: #000000;
+  font-family: 'Figtree', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #F5F0E8;
+  color: #1C1814;
   width: 360px;
   min-height: 100vh;
   overflow-x: hidden;
@@ -18,30 +18,33 @@ body {
 
 /* Typography */
 h1 {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.65;
   margin: 0;
 }
 
 h2 {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.65;
   margin: 0;
 }
 
 h3 {
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.65;
   margin: 0;
 }
 
 p {
   font-size: 14px;
   font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.65;
   margin: 0;
 }
 
@@ -72,7 +75,7 @@ p {
 }
 
 .email-header h1 {
-  color: #000000;
+  color: #1C1814;
   max-width: 280px;
 }
 
@@ -90,21 +93,21 @@ p {
   padding: 12px 16px;
   font-size: 14px;
   font-weight: 400;
-  font-family: 'Inter', sans-serif;
-  border: 1px solid #E5E5E5;
+  font-family: 'Figtree', sans-serif;
+  border: 1px solid #E4DDD3;
   border-radius: 6px;
-  background-color: #FFFFFF;
-  color: #000000;
+  background-color: #FFFDF4;
+  color: #1C1814;
   transition: border-color 0.2s;
 }
 
 .email-input:focus {
   outline: none;
-  border-color: #000000;
+  border-color: #8B9B7C;
 }
 
 .email-input::placeholder {
-  color: #999999;
+  color: #A09890;
 }
 
 /* Buttons */
@@ -112,8 +115,8 @@ p {
   width: 100%;
   padding: 12px 16px;
   font-size: 14px;
-  font-weight: 500;
-  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-family: 'Figtree', sans-serif;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -121,26 +124,26 @@ p {
 }
 
 .btn-primary {
-  background-color: #000000;
-  color: #FFFFFF;
+  background-color: #8B9B7C;
+  color: #FFFDF4;
 }
 
 .btn-primary:hover {
-  background-color: #333333;
+  background-color: #6A8F72;
 }
 
 .btn-primary:active {
-  background-color: #000000;
+  background-color: #8B9B7C;
 }
 
 .btn-save {
-  background-color: #000000;
-  color: #FFFFFF;
+  background-color: #8B9B7C;
+  color: #FFFDF4;
   margin-top: 16px;
 }
 
 .btn-save:hover:not(:disabled) {
-  background-color: #333333;
+  background-color: #6A8F72;
 }
 
 .btn-save:disabled {
@@ -149,28 +152,29 @@ p {
 }
 
 .btn-saved {
-  background-color: #E0F2E1 !important;
-  color: #000000 !important;
+  background-color: #C8D0C4 !important;
+  color: #1C1814 !important;
 }
 
 .btn-saved:hover {
-  background-color: #E0F2E1 !important;
+  background-color: #C8D0C4 !important;
 }
 
 .btn-detect {
-  background-color: #000000;
-  color: #FFFFFF;
+  background-color: #8B9B7C;
+  color: #FFFDF4;
   margin-top: 20px;
 }
 
 .btn-detect:hover {
-  background-color: #333333;
+  background-color: #6A8F72;
 }
 
 /* Job Screen */
 .header {
   padding: 16px 20px;
-  border-bottom: 1px solid #E5E5E5;
+  background-color: #FFFDF4;
+  border-bottom: 1px solid #E4DDD3;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -188,9 +192,10 @@ p {
 }
 
 .header-text {
-  font-size: 14px;
-  font-weight: 600;
-  color: #000000;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1C1814;
 }
 
 .header-user {
@@ -201,14 +206,14 @@ p {
 
 .user-email {
   font-size: 12px;
-  font-weight: 500;
-  color: #666666;
+  font-weight: 400;
+  color: #6B6358;
 }
 
 .change-email-btn {
   background: none;
   border: none;
-  color: #666666;
+  color: #6B6358;
   font-size: 16px;
   cursor: pointer;
   padding: 4px 6px;
@@ -218,8 +223,8 @@ p {
 }
 
 .change-email-btn:hover {
-  background-color: #F5F5F5;
-  color: #000000;
+  background-color: #FFFDF4;
+  color: #1C1814;
 }
 
 /* State containers */
@@ -248,65 +253,67 @@ p {
 
 .empty-state h3 {
   margin-bottom: 8px;
-  color: #000000;
+  color: #1C1814;
 }
 
 .empty-state p {
-  color: #666666;
+  color: #6B6358;
   font-size: 14px;
 }
 
 /* Section label */
 .section-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #666666;
-  letter-spacing: 0.5px;
+  font-family: 'Figtree', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: #A09890;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
   margin-bottom: 12px;
 }
 
 /* Job card */
 .job-card {
-  background-color: #FFFFFF;
-  border: 1px solid #E5E5E5;
+  background-color: #FFFDF4;
+  border: 1px solid #E4DDD3;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
 }
 
 .job-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #000000;
+  font-size: 18px;
+  font-weight: 500;
+  color: #1C1814;
   margin-bottom: 8px;
-  line-height: 1.4;
+  line-height: 1.65;
 }
 
 .job-company {
   font-size: 14px;
-  font-weight: 500;
-  color: #000000;
+  font-weight: 600;
+  color: #1C1814;
   margin-bottom: 4px;
 }
 
 .job-location {
   font-size: 14px;
   font-weight: 400;
-  color: #666666;
+  color: #6B6358;
   margin-bottom: 12px;
 }
 
 .job-divider {
   height: 1px;
-  background-color: #E5E5E5;
+  background-color: #E4DDD3;
   margin: 12px 0;
 }
 
 .job-description {
   font-size: 14px;
   font-weight: 400;
-  color: #333333;
-  line-height: 1.5;
+  color: #6B6358;
+  line-height: 1.65;
   max-height: 120px;
   overflow-y: auto;
 }
@@ -321,8 +328,8 @@ p {
 
 .status-label {
   font-size: 14px;
-  font-weight: 500;
-  color: #000000;
+  font-weight: 600;
+  color: #1C1814;
 }
 
 .status-select {
@@ -330,25 +337,25 @@ p {
   padding: 8px 12px;
   font-size: 14px;
   font-weight: 400;
-  font-family: 'Inter', sans-serif;
-  border: 1px solid #E5E5E5;
+  font-family: 'Figtree', sans-serif;
+  border: 1px solid #E4DDD3;
   border-radius: 4px;
-  background-color: #FFFFFF;
-  color: #000000;
+  background-color: #FFFDF4;
+  color: #1C1814;
   cursor: pointer;
 }
 
 .status-select:focus {
   outline: none;
-  border-color: #000000;
+  border-color: #8B9B7C;
 }
 
 /* Loading state */
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #E5E5E5;
-  border-top-color: #000000;
+  border: 3px solid #E4DDD3;
+  border-top-color: #8B9B7C;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
@@ -363,17 +370,17 @@ p {
 .loading-text {
   text-align: center;
   font-size: 14px;
-  color: #666666;
+  color: #6B6358;
 }
 
 /* Error messages */
 .error-message {
   padding: 12px 16px;
-  background-color: #FEE2E2;
-  border: 1px solid #FCA5A5;
+  background-color: #F2E2E2;
+  border: 1px solid #E4DDD3;
   border-radius: 6px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   color: #991B1B;
   margin-top: 12px;
   text-align: center;
@@ -385,17 +392,17 @@ p {
 }
 
 .job-description::-webkit-scrollbar-track {
-  background: #F5F5F5;
+  background: #F5F0E8;
   border-radius: 3px;
 }
 
 .job-description::-webkit-scrollbar-thumb {
-  background: #E5E5E5;
+  background: #E4DDD3;
   border-radius: 3px;
 }
 
 .job-description::-webkit-scrollbar-thumb:hover {
-  background: #D5D5D5;
+  background: #A09890;
 }
 
 /* Responsive adjustments */

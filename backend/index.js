@@ -130,7 +130,7 @@ app.post('/api/jobs', async (req, res) => {
     // Check for duplicate job URL for this user
     try {
       const existingRecords = await table.select({
-        filterByFormula: `AND({Email} = '${sanitizedData.email}', {Job URL} = '${sanitizedData.jobUrl}')`,
+        filterByFormula: `AND({email} = '${sanitizedData.email}', {job-url} = '${sanitizedData.jobUrl}')`,
         maxRecords: 1
       }).firstPage();
 
@@ -151,13 +151,14 @@ app.post('/api/jobs', async (req, res) => {
     const record = await table.create([
       {
         fields: {
-          'Job Title': sanitizedData.jobTitle,
-          'Company Name': sanitizedData.companyName,
-          'Location': sanitizedData.location,
-          'Description': sanitizedData.description,
-          'Email': sanitizedData.email,
+          'email': sanitizedData.email,
+          'job-title': sanitizedData.jobTitle,
+          'company': sanitizedData.companyName,
+          'location': sanitizedData.location,
+          'job-description': sanitizedData.description,
           'Status': sanitizedData.status,
-          'Job URL': sanitizedData.jobUrl
+          'job-url': sanitizedData.jobUrl,
+          'created-date': new Date().toISOString()
         }
       }
     ]);

@@ -149,20 +149,88 @@ function handleChangeEmail() {
   log('CHANGE_EMAIL_COMPLETE');
 }
 
+// Helper: wait for a tab to reach status 'complete'
+function waitForTabComplete(tabId, timeout = 15000) {
+  return new Promise((resolve, reject) => {
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      chrome.tabs.onUpdated.removeListener(listener);
+      reject(new Error('Tab load timed out'));
+    }, timeout);
+
+    function listener(updatedTabId, changeInfo, tab) {
+      if (updatedTabId === tabId && changeInfo && changeInfo.status === 'complete') {
+        if (!timedOut) {
+          clearTimeout(timer);
+          chrome.tabs.onUpdated.removeListener(listener);
+          resolve(tab);
+        }
+      }
+    }
+
+    chrome.tabs.onUpdated.addListener(listener);
+  });
+}
+
 // Handle manual detect job button click
 async function handleDetectJob() {
   log('MANUAL_DETECT_START');
 
   // Disable button and show loading state
   elements.detectJobBtn.disabled = true;
-  elements.detectJobBtn.textContent = '🔄 Detecting...';
+  elements.detectJobBtn.textContent = '🔄 Refreshing...';
 
   try {
-    // Start monitoring (like email submit does) - this enables continuous detection
-    await startMonitoring();
+    // Get current active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    // Request current job data immediately
-    await requestCurrentJobData();
+    if (!tab || !tab.url || !tab.url.includes('linkedin.com')) {
+      log('NOT_ON_LINKEDIN', { url: tab?.url });
+      elements.detectJobBtn.disabled = false;
+      elements.detectJobBtn.textContent = '🔄 Detect Current Job';
+      return;
+    }
+
+    // Refresh the page to force LinkedIn to rehydrate state
+    log('REFRESHING_PAGE', { tabId: tab.id });
+    try {
+      await chrome.tabs.reload(tab.id);
+    } catch (err) {
+      // Some Chrome versions may not reject; still proceed to waiting
+      log('CHROME_TABS_RELOAD_ERROR', { error: err.message });
+    }
+
+    // Wait for tab to complete loading (with timeout)
+    try {
+      await waitForTabComplete(tab.id, 15000); // 15s timeout
+      log('TAB_LOAD_COMPLETE', { tabId: tab.id });
+    } catch (err) {
+      log('TAB_LOAD_TIMEOUT', { error: err.message });
+      // Continue anyway — we give content script a small chance to initialize
+    }
+
+    // Small delay to allow content scripts to attach and run
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    // Update UI text and begin detection
+    elements.detectJobBtn.textContent = '🔄 Detecting...';
+
+    // Start monitoring (awaiting success)
+    try {
+      await startMonitoring();
+    } catch (err) {
+      log('START_MONITORING_AFTER_RELOAD_ERROR', { error: err.message });
+      // proceed to try to request job data anyway
+    }
+
+    // Request job data and wait for response
+    try {
+      await requestCurrentJobData();
+    } catch (err) {
+      log('REQUEST_JOB_DATA_AFTER_RELOAD_ERROR', { error: err.message });
+      // If failed, keep STATE.currentJob as null and UI updated by requestCurrentJobData
+    }
 
     // Re-enable button after detection
     setTimeout(() => {
@@ -266,93 +334,112 @@ function showLoadingState() {
 }
 
 // Start monitoring in content script
-async function startMonitoring() {
+function startMonitoring() {
   log('START_MONITORING');
 
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return new Promise(async (resolve, reject) => {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab || !tab.url.includes('linkedin.com')) {
-      log('NOT_ON_LINKEDIN', { url: tab?.url });
-      return;
-    }
-
-    // Tell content script to start monitoring
-    chrome.tabs.sendMessage(tab.id, { type: 'START_MONITORING' }, (response) => {
-      if (chrome.runtime.lastError) {
-        log('START_MONITORING_ERROR', { error: chrome.runtime.lastError.message });
-      } else {
-        log('START_MONITORING_SUCCESS', { response });
-      }
-    });
-  } catch (error) {
-    log('START_MONITORING_ERROR', { error: error.message });
-  }
-}
-
-// Stop monitoring in content script
-async function stopMonitoring() {
-  log('STOP_MONITORING');
-
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-    if (!tab || !tab.url.includes('linkedin.com')) {
-      return;
-    }
-
-    // Tell content script to stop monitoring
-    chrome.tabs.sendMessage(tab.id, { type: 'STOP_MONITORING' }, (response) => {
-      if (chrome.runtime.lastError) {
-        log('STOP_MONITORING_ERROR', { error: chrome.runtime.lastError.message });
-      } else {
-        log('STOP_MONITORING_SUCCESS', { response });
-      }
-    });
-  } catch (error) {
-    log('STOP_MONITORING_ERROR', { error: error.message });
-  }
-}
-
-// Request current job data from content script
-async function requestCurrentJobData() {
-  log('REQUEST_JOB_DATA_START');
-
-  try {
-    // Get current active tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-    if (!tab || !tab.url.includes('linkedin.com')) {
-      log('NOT_ON_LINKEDIN', { url: tab?.url });
-      STATE.currentJob = null;
-      updateUI();
-      return;
-    }
-
-    // Request job data from content script
-    chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_JOB_DATA' }, (response) => {
-      if (chrome.runtime.lastError) {
-        log('CONTENT_SCRIPT_ERROR', { error: chrome.runtime.lastError.message });
-        STATE.currentJob = null;
-        updateUI();
+      if (!tab || !tab.url || !tab.url.includes('linkedin.com')) {
+        log('NOT_ON_LINKEDIN', { url: tab?.url });
+        reject(new Error('Not on LinkedIn'));
         return;
       }
 
-      if (response && response.success && response.data) {
-        log('JOB_DATA_RECEIVED', { jobUrl: response.data.jobUrl });
-        STATE.currentJob = response.data;
-        updateUI();
-      } else {
-        log('NO_JOB_DATA', { response });
+      // Tell content script to start monitoring
+      chrome.tabs.sendMessage(tab.id, { type: 'START_MONITORING' }, (response) => {
+        if (chrome.runtime.lastError) {
+          log('START_MONITORING_ERROR', { error: chrome.runtime.lastError.message });
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          log('START_MONITORING_SUCCESS', { response });
+          resolve(response);
+        }
+      });
+    } catch (error) {
+      log('START_MONITORING_ERROR', { error: error.message });
+      reject(error);
+    }
+  });
+}
+
+// Stop monitoring in content script
+function stopMonitoring() {
+  log('STOP_MONITORING');
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      if (!tab || !tab.url || !tab.url.includes('linkedin.com')) {
+        resolve();
+        return;
+      }
+
+      // Tell content script to stop monitoring
+      chrome.tabs.sendMessage(tab.id, { type: 'STOP_MONITORING' }, (response) => {
+        if (chrome.runtime.lastError) {
+          log('STOP_MONITORING_ERROR', { error: chrome.runtime.lastError.message });
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          log('STOP_MONITORING_SUCCESS', { response });
+          resolve(response);
+        }
+      });
+    } catch (error) {
+      log('STOP_MONITORING_ERROR', { error: error.message });
+      reject(error);
+    }
+  });
+}
+
+// Request current job data from content script
+function requestCurrentJobData() {
+  log('REQUEST_JOB_DATA_START');
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Get current active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      if (!tab || !tab.url || !tab.url.includes('linkedin.com')) {
+        log('NOT_ON_LINKEDIN', { url: tab?.url });
         STATE.currentJob = null;
         updateUI();
+        resolve(null);
+        return;
       }
-    });
-  } catch (error) {
-    log('REQUEST_JOB_DATA_ERROR', { error: error.message });
-    STATE.currentJob = null;
-    updateUI();
-  }
+
+      // Request job data from content script
+      chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_JOB_DATA' }, (response) => {
+        if (chrome.runtime.lastError) {
+          log('CONTENT_SCRIPT_ERROR', { error: chrome.runtime.lastError.message });
+          STATE.currentJob = null;
+          updateUI();
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+
+        if (response && response.success && response.data) {
+          log('JOB_DATA_RECEIVED', { jobUrl: response.data.jobUrl });
+          STATE.currentJob = response.data;
+          updateUI();
+          resolve(response.data);
+        } else {
+          log('NO_JOB_DATA', { response });
+          STATE.currentJob = null;
+          updateUI();
+          resolve(null);
+        }
+      });
+    } catch (error) {
+      log('REQUEST_JOB_DATA_ERROR', { error: error.message });
+      STATE.currentJob = null;
+      updateUI();
+      reject(error);
+    }
+  });
 }
 
 // Handle save button click

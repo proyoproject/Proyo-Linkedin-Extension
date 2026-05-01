@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Proyo Job Saver",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "description": "Save LinkedIn job listings to your Proyo dashboard via Airtable",
   "permissions": [
     "storage",
@@ -18,7 +18,7 @@
   "content_scripts": [
     {
       "matches": ["*://www.linkedin.com/*"],
-      "js": ["content.js"],
+      "js": ["jobScraper.js", "content.js"],
       "run_at": "document_idle"
     }
   ],

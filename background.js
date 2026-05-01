@@ -4,6 +4,7 @@ const log = (action, data = {}) => {
   console.log(`[Proyo Background] ${new Date().toISOString()} | ${action}`, data);
 };
 
+
 // Initialize extension
 chrome.runtime.onInstalled.addListener((details) => {
   log('INSTALLED', { reason: details.reason, version: chrome.runtime.getManifest().version });

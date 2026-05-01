@@ -306,6 +306,10 @@ async function extractJobDataFull() {
   return jobData;
 }
 
+// Expose legacy scrapers so jobScraper.js can fall back when the guest endpoint fails.
+window.proyoLegacyExtractBasic = extractJobDataBasic;
+window.proyoLegacyExtractFull = extractJobDataFull;
+
 // Detect job changes and notify side panel (uses basic extraction - no expansion)
 function detectAndNotifyJobChange() {
   // Only detect if monitoring is active (sidebar is open)
@@ -446,18 +450,28 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'EXTRACT_JOB_DATA') {
-    // Basic extraction (no expansion)
+    // Resolve job ID and fetch canonical data from the guest endpoint;
+    // legacy DOM scrape is the fallback inside getJobData().
+    if (window.ProyoScraper && typeof window.ProyoScraper.getJobData === 'function') {
+      window.ProyoScraper.getJobData({ full: false })
+        .then(jobData => sendResponse({ success: !jobData.error, data: jobData }));
+      return true; // async response
+    }
     const jobData = extractJobDataBasic();
     sendResponse({ success: true, data: jobData });
     return false;
   }
 
   if (message.type === 'EXTRACT_JOB_DATA_FULL') {
-    // Full extraction with description expansion
+    if (window.ProyoScraper && typeof window.ProyoScraper.getJobData === 'function') {
+      window.ProyoScraper.getJobData({ full: true })
+        .then(jobData => sendResponse({ success: !jobData.error, data: jobData }));
+      return true;
+    }
     extractJobDataFull().then(jobData => {
       sendResponse({ success: true, data: jobData });
     });
-    return true; // Keep message channel open for async response
+    return true;
   }
 
   return false;

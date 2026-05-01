@@ -18,7 +18,21 @@
       "Read(//tmp/**)",
       "WebFetch(domain:airtable.com)",
       "Bash(gh auth:*)",
-      "Bash(ssh -T git@github.com)"
+      "Bash(ssh -T git@github.com)",
+      "Bash(node --check jobScraper.js)",
+      "Bash(node --check background.js)",
+      "Bash(node --check content.js)",
+      "Bash(node --check sidepanel.js)",
+      "Read(//usr/local/bin/**)",
+      "Bash(command -v deno)",
+      "Bash(command -v bun)",
+      "Bash(command -v jsc)",
+      "Read(//System/Volumes/Preboot/Cryptexes/OS/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/**)",
+      "Bash(command -v osascript)",
+      "Bash(/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -e ' *)",
+      "Bash(command -v gh)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(ssh -T -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new git@github.com)"
     ]
   }
 }
